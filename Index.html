@@ -1,1 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shopping Trip Registration</title>
+
+<style>
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    text-align: center;
+    padding: 15px;
+    background-color: #f4f4f6;
+    margin: 0;
+}
+.container {
+    max-width: 400px;
+    margin: 10px auto;
+    background: #ffffff;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+h2, h3 {
+    color: #1c1c1e;
+    margin-bottom: 10px;
+}
+.btn-group {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+button {
+    padding: 12px;
+    flex: 1;
+    cursor: pointer;
+    border-radius: 8px;
+    border: none;
+    font-size: 15px;
+    font-weight: bold;
+    transition: all 0.3s ease;
+}
+
+/* Location Buttons Styling */
+.loc-btn {
+    background-color: #e5e5ea;
+    color: #8e8e93;
+}
+.loc-btn.active {
+    background-color: #007aff;
+    color: white;
+    box-shadow: 0 4px 8px rgba(0, 122, 255, 0.3);
+}
+
+/* Time Buttons Styling */
+.time-btn {
+    background-color: #e5e5ea;
+    color: #8e8e93;
+}
+.time-btn.active {
+    background-color: #34c759;
+    color: white;
+    box-shadow: 0 4px 8px rgba(52, 199, 89, 0.3);
+}
+
+select, input {
+    width: 100%;
+    padding: 14px;
+    margin: 10px 0;
+    border: 1px solid #c7c7cc;
+    border-radius: 6px;
+    box-sizing: border-box;
+    font-size: 16px;
+}
+#successMsg {
+    display: none;
+    background-color: #e8f5e9;
+    color: #2e7d32;
+    padding: 15px;
+    margin-top: 15px;
+    border-radius: 8px;
+    font-weight: bold;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+    <h2>Shopping Trip</h2>
+
+    <h3>Select Location</h3>
+    <div class="btn-group">
+        <button id="btnDammam" class="loc-btn" onclick="selectLocation('dammam')">Dammam</button>
+        <button id="btnKhobar" class="loc-btn" onclick="selectLocation('khobar')">Khobar</button>
+    </div>
+
+    <div id="timeSection" style="display:none;">
+        <h3>Select Time</h3>
+        <div class="btn-group">
+            <button id="btnMorning" class="time-btn" onclick="selectTime('morning')">Morning</button>
+            <button id="btnNight" class="time-btn" onclick="selectTime('night')">Night</button>
+        </div>
+    </div>
+
+    <div id="dateFormSection" style="display:none;">
+        <h3>Select Date</h3>
+        <select id="dateSelect"></select>
+
+        <form id="tripForm">
+            <label style="display:block; text-align:left; font-weight: bold; margin-bottom: 5px;">Select ID Type:</label>
+            <select id="idType" onchange="updateUI()">
+                <option value="iqama">Iqama (10 Digits)</option>
+                <option value="prn">PRN (6-8 Digits)</option>
+            </select>
+
+            <input type="text" id="idNumber" placeholder="Enter Iqama Number" required oninput="validateLive()">
+            <input type="text" id="name" placeholder="Full Name" required oninput="validateLive()">
+            <input type="text" id="phone" placeholder="Phone (05xxxxxxx)" required oninput="validateLive()">
+
+            <button type="submit" id="submitBtn" style="width: 100%; background-color: #ffcc00; color: #1c1c1e; border: none; font-weight:bold; display:none; margin-top: 10px;">Submit Registration</button>
+        </form>
+    </div>
+
+    <div id="successMsg">Register done enjoy your trip!</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
+
+<script>
+(function(){
+    emailjs.init("mB2wfbA7nZFBk5FOV");
+})();
+
+let selectedLoc = "";
+let selectedT = "";
+
+const schedule = {
+    dammam: { morning: ["Saturday", "Monday"], night: ["Tuesday", "Thursday"] },
+    khobar: { morning: ["Wednesday"], night: ["Sunday", "Friday"] }
+};
+
+function selectLocation(loc) {
+    selectedLoc = loc;
+    document.getElementById("btnDammam").classList.toggle("active", loc === 'dammam');
+    document.getElementById("btnKhobar").classList.toggle("active", loc === 'khobar');
+    
+    document.getElementById("timeSection").style.display = "block";
+    if(selectedT) selectTime(selectedT); // Refresh the dates if time was already selected
+}
+
+function selectTime(time) {
+    selectedT = time;
+    document.getElementById("btnMorning").classList.toggle("active", time === 'morning');
+    document.getElementById("btnNight").classList.toggle("active", time === 'night');
+
+    let dateSelect = document.getElementById("dateSelect");
+    dateSelect.innerHTML = "";
+    
+    let today = new Date();
+    for (let i = 0; i < 7; i++) {
+        let d = new Date();
+        d.setDate(today.getDate() + i);
+        let dayName = d.toLocaleDateString('en-US', { weekday: 'long' });
+        
+        if (schedule[selectedLoc][selectedT].includes(dayName)) {
+            let opt = document.createElement("option");
+            opt.text = d.toDateString() + " (" + dayName + ")";
+            dateSelect.add(opt);
+        }
+    }
+
+    document.getElementById("dateFormSection").style.display = "block";
+    validateLive();
+}
+
+function updateUI() {
+    const type = document.getElementById("idType").value;
+    document.getElementById("idNumber").placeholder = type === "prn" ? "Enter 6-8 Digit PRN" : "Enter 10 Digit Iqama";
+    validateLive();
+}
+
+function validateLive() {
+    const idType = document.getElementById("idType").value;
+    let idNumber = document.getElementById("idNumber").value;
+    let name = document.getElementById("name").value;
+    let phone = document.getElementById("phone").value;
+    const btn = document.getElementById("submitBtn");
+
+    let isValid = true;
+    if (idType === "prn" && (idNumber.length < 6 || idNumber.length > 8)) isValid = false;
+    else if (idType === "iqama" && idNumber.length !== 10) isValid = false;
+    if (name.trim().length < 3) isValid = false;
+    if (!/^05\d{8}$/.test(phone)) isValid = false;
+
+    btn.style.display = isValid ? "block" : "none";
+}
+
+document.getElementById("tripForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    let data = {
+        location: selectedLoc,
+        time: selectedT,
+        date: document.getElementById("dateSelect").value,
+        id_type: document.getElementById("idType").value.toUpperCase(),
+        id_number: document.getElementById("idNumber").value,
+        name: document.getElementById("name").value,
+        phone: document.getElementById("phone").value
+    };
+
+    emailjs.send("service_8czl9zt","template_pmih94g", data)
+    .then(function(){
+        document.getElementById("successMsg").style.display = "block";
+        setTimeout(() => {
+            document.getElementById("tripForm").reset();
+            document.getElementById("successMsg").style.display = "none";
+        }, 3000);
+    }, function(error){
+        alert("Error: " + JSON.stringify(error));
+    });
+});
+</script>
+
+</body>
+</html>
 
