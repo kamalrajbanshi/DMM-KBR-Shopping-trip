@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shopping Trip - Smart Calendar</title>
+    <style>
+        body { font-family: -apple-system, sans-serif; text-align: center; padding: 15px; background-color: #f4f4f6; margin: 0; }
+        .container { max-width: 400px; margin: 10px auto; background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .btn-group { display: flex; gap: 10px; margin-bottom: 15px; }
+        button { padding: 12px; flex: 1; cursor: pointer; border-radius: 8px; border: 1px solid #ddd; font-weight: bold; background: #e5e5ea; color: #8e8e93; }
+        button.active { background-color: #007aff; color: white; border-color: #007aff; }
+        
+        /* Calendar Styles */
+        .calendar-header { display: flex; justify-content: center; align-items: center; margin: 15px 0; font-weight: bold; font-size: 18px; }
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; margin-bottom: 15px; }
+        .day-name { font-size: 12px; color: #8e8e93; padding-bottom: 5px; }
+        .date-cell { padding: 10px 0; border-radius: 8px; font-size: 14px; cursor: default; color: #d1d1d6; border: 1px solid transparent; }
+        .date-active { color: #000; font-weight: bold; cursor: pointer; border: 1px solid #007aff; }
+        .date-selected { background-color: #007aff !important; color: white !important; }
+        .date-locked { color: #d1d1d6 !important; border: 1px solid transparent !important; cursor: not-allowed !important; }
+
+        input, select { width: 100%; padding: 14px; margin: 8px 0; border: 1px solid #c7c7cc; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
+        #submitBtn { width: 100%; background-color: #ffcc00; color: #000; border: none; font-weight: bold; padding: 16px; border-radius: 8px; cursor: pointer; display: none; margin-top: 10px; font-size: 17px; }
+        .error-text { color: red; font-size: 12px; display: none; text-align: left; margin-bottom: 5px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2 style="margin-top:0;">Shopping Trip</h2>
+
+    <h4 style="text-align:left; margin-bottom:5px;">1. Select Location</h4>
+    <div class="btn-group">
+        <button id="btnDammam" onclick="selectLocation('dammam')">Dammam</button>
+        <button id="btnKhobar" onclick="selectLocation('khobar')">Khobar</button>
+    </div>
+
+    <div id="timeSection" style="display:none;">
+        <h4 style="text-align:left; margin-bottom:5px;">2. Select Time</h4>
+        <div class="btn-group">
+            <button id="btnMorning" onclick="selectTime('morning')">Morning</button>
+            <button id="btnNight" onclick="selectTime('night')">Night</button>
+        </div>
+    </div>
+
+    <div id="calendarSection" style="display:none;">
+        <h4 style="text-align:left; margin-bottom:5px;">3. Select Date</h4>
+        <div class="calendar-header" id="monthDisplay"></div>
+        <div class="calendar-grid" id="calendarGrid"></div>
+
+        <form id="tripForm">
+            <h4 style="text-align:left; margin-bottom:5px;">ID Type</h4>
+            <select id="idType" onchange="updatePlaceholder()">
+                <option value="iqama">Iqama (10 Digits)</option>
+                <option value="prn">PRN (6-8 Digits)</option>
+            </select>
+
+            <input type="number" id="idNumber" placeholder="Enter 10 Digit Iqama Number" required oninput="validateLive()">
+            
+            <div id="nameError" class="error-text">⚠️ Invalid name (Items/Animal names not allowed)</div>
+            <input type="text" id="name" placeholder="Full Name" required oninput="handleNameInput()">
+            
+            <input type="tel" id="phone" placeholder="Phone (05xxxxxxx)" required oninput="validateLive()">
+            
+            <button type="submit" id="submitBtn">Submit Registration</button>
+        </form>
+    </div>
+    <div id="successMsg" style="display:none; color: green; font-weight: bold; margin-top: 15px;">Register done enjoy your trip!</div>
+</div>
+
+<script>
+const scriptURL = 'https://script.google.com/macros/s/AKfycbyJseEz0gqgtomamRckrb82FqRCJ2pmLUSTpZS6h4MYSQWvi_t70OuV8WpMZr7-irba3w/exec';
+
+let selectedLoc = ""; let selectedT = ""; let finalDate = "";
+
+const schedule = {
+    dammam: { morning: ["Saturday", "Monday"], night: ["Tuesday", "Thursday"] },
+    khobar: { morning: ["Wednesday"], night: ["Sunday", "Friday"] }
+};
+
+// ब्यान्ड गरिएका शब्दहरू
+const bannedWords = ["dog", "cat", "table", "water", "apple", "car", "mobile", "chair", "animal", "thing"];
+
+function selectLocation(loc) {
+    selectedLoc = loc;
+    document.getElementById("btnDammam").className = (loc === 'dammam') ? "active" : "";
+    document.getElementById("btnKhobar").className = (loc === 'khobar') ? "active" : "";
+    document.getElementById("timeSection").style.display = "block";
+    if(selectedT) renderCalendar();
+}
+
+function selectTime(time) {
+    selectedT = time;
+    document.getElementById("btnMorning").className = (time === 'morning') ? "active" : "";
+    document.getElementById("btnNight").className = (time === 'night') ? "active" : "";
+    renderCalendar();
+}
+
+function renderCalendar() {
+    const grid = document.getElementById("calendarGrid");
+    const monthDisplay = document.getElementById("monthDisplay");
+    grid.innerHTML = "";
+    const now = new Date();
+    monthDisplay.innerText = now.toLocaleString('default', { month: 'long', year: 'numeric' });
+
+    ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].forEach(day => {
+        const div = document.createElement("div"); div.className = "day-name"; div.innerText = day; grid.appendChild(div);
+    });
+
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).getDay();
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+
+    for (let i = 0; i < firstDay; i++) grid.appendChild(document.createElement("div"));
+
+    const currentMin = now.getHours() * 60 + now.getMinutes();
+    const mornS = 8 * 60 + 30; const mornE = 8 * 60 + 40;
+    const nightS = 19 * 60 + 30; const nightE = 19 * 60 + 40;
+
+    for (let day = 1; day <= daysInMonth; day++) {
+        const dateObj = new Date(now.getFullYear(), now.getMonth(), day);
+        const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+        const cell = document.createElement("div");
+        cell.className = "date-cell"; cell.innerText = day;
+
+        const isToday = (dateObj.toDateString() === now.toDateString());
+        const isPast = (dateObj < new Date(now.setHours(0,0,0,0)));
+
+        if (schedule[selectedLoc][selectedT].includes(dayName) && !isPast) {
+            let locked = false;
+            if (isToday) {
+                if (selectedT === 'morning' && currentMin >= mornS && currentMin < mornE) locked = true;
+                if (selectedT === 'night' && currentMin >= nightS && currentMin < nightE) locked = true;
+            }
+            if (locked) { cell.classList.add("date-locked"); } 
+            else {
+                cell.classList.add("date-active");
+                cell.onclick = () => {
+                    document.querySelectorAll(".date-cell").forEach(c => c.classList.remove("date-selected"));
+                    cell.classList.add("date-selected");
+                    finalDate = dateObj.toDateString(); validateLive();
+                };
+            }
+        }
+        grid.appendChild(cell);
+    }
+    document.getElementById("calendarSection").style.display = "block";
+}
+
+function updatePlaceholder() {
+    const type = document.getElementById("idType").value;
+    const input = document.getElementById("idNumber");
+    input.placeholder = (type === "prn") ? "Enter 6-8 Digit PRN Number" : "Enter 10 Digit Iqama Number";
+    validateLive();
+}
+
+function handleNameInput() {
+    let input = document.getElementById("name");
+    // पहिलो अक्षर Capital बनाउने
+    if (input.value.length > 0) {
+        input.value = input.value.charAt(0).toUpperCase() + input.value.slice(1);
+    }
+    validateLive();
+}
+
+function validateLive() {
+    const idType = document.getElementById("idType").value;
+    const idNum = document.getElementById("idNumber").value;
+    const nameVal = document.getElementById("name").value.toLowerCase().trim();
+    const phone = document.getElementById("phone").value;
+    const btn = document.getElementById("submitBtn");
+    const nameError = document.getElementById("nameError");
+
+    let isNameBanned = bannedWords.includes(nameVal);
+    nameError.style.display = isNameBanned ? "block" : "none";
+
+    let isValid = finalDate !== "" && nameVal.length > 2 && !isNameBanned && /^05\d{8}$/.test(phone);
+    
+    if (idType === "iqama") isValid = isValid && idNum.length === 10;
+    else isValid = isValid && (idNum.length >= 6 && idNum.length <= 8);
+
+    btn.style.display = isValid ? "block" : "none";
+}
+
+document.getElementById("tripForm").addEventListener("submit", function(e) {
+    e.preventDefault();
+    const btn = document.getElementById("submitBtn");
+    btn.innerText = "Sending Data..."; btn.disabled = true;
+
+    fetch(scriptURL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({
+        location: selectedLoc, time: selectedT, date: finalDate,
+        id_type: document.getElementById("idType").value.toUpperCase(), id_number: document.getElementById("idNumber").value,
+        name: document.getElementById("name").value, phone: document.getElementById("phone").value
+    })}).then(() => {
+        document.getElementById("successMsg").style.display = "block";
+        document.getElementById("tripForm").reset();
+        btn.style.display = "none";
+        setTimeout(() => location.reload(), 3000);
+    });
+});
+</script>
+</body>
+</html>
+
