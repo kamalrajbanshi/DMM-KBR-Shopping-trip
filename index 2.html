@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shopping Trip Registration</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#4a5496">
+    <link rel="apple-touch-icon" href="https://via.placeholder.com/192">
+
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; display: flex; justify-content: center; }
+        .container { width: 100%; max-width: 400px; background: white; padding: 25px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        h2 { text-align: center; color: #4a5496; margin-bottom: 20px; }
+        input, select, button { width: 100%; padding: 14px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; box-sizing: border-box; }
+        button { background-color: #4a5496; color: white; border: none; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        button:hover { background-color: #3a4486; }
+        #status { text-align: center; margin-top: 15px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Shopping Registration</h2>
+    <form id="registrationForm">
+        <input type="text" id="name" placeholder="Full Name" required>
+        <select id="idType">
+            <option value="Iqama">Iqama (10 Digits)</option>
+            <option value="PRN">PRN</option>
+        </select>
+        <input type="number" id="idNumber" placeholder="ID Number" required>
+        <input type="number" id="phone" placeholder="Phone Number" required>
+        <button type="submit">Submit Registration</button>
+    </form>
+    <div id="status"></div>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
+    import { getDatabase, ref, push } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-database.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyDRqie4YqusveRoSSV1uzx4R8UqyXokG1M",
+        authDomain: "shopping-trip-67312.firebaseapp.com",
+        databaseURL: "https://shopping-trip-67312-default-rtdb.firebaseio.com",
+        projectId: "shopping-trip-67312",
+        storageBucket: "shopping-trip-67312.firebasestorage.app",
+        messagingSenderId: "856528424055",
+        appId: "1:856528424055:web:a38284f5b6023637fdca72",
+        measurementId: "G-01JXPVW91P"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    document.getElementById('registrationForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const statusDiv = document.getElementById('status');
+        statusDiv.innerText = "Processing...";
+
+        const data = {
+            name: document.getElementById('name').value,
+            idType: document.getElementById('idType').value,
+            idNumber: document.getElementById('idNumber').value,
+            phone: document.getElementById('phone').value,
+            timestamp: new Date().toISOString()
+        };
+
+        push(ref(db, 'registrations'), data)
+            .then(() => {
+                statusDiv.style.color = "green";
+                statusDiv.innerText = "Successfully Registered!";
+                document.getElementById('registrationForm').reset();
+            })
+            .catch((error) => {
+                statusDiv.style.color = "red";
+                statusDiv.innerText = "Error: " + error.message;
+            });
+    });
+</script>
+
+<script>
+    // PWA registration
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js').catch(() => {});
+        });
+    }
+</script>
+
+</body>
+</html>
