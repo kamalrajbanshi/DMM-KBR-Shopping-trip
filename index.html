@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registration</title>
+    <style>
+        body { font-family: -apple-system, sans-serif; text-align: center; padding: 15px; background-color: #f4f4f6; margin: 0; }
+        .container { max-width: 400px; margin: 10px auto; background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .btn-group { display: flex; gap: 10px; margin-bottom: 15px; }
+        button { padding: 12px; flex: 1; cursor: pointer; border-radius: 8px; border: 1px solid #ddd; font-weight: bold; background: #e5e5ea; color: #8e8e93; transition: 0.3s; }
+        button.active { background-color: #007aff; color: white; border-color: #007aff; }
+        
+        .calendar-header { display: flex; justify-content: center; align-items: center; margin: 15px 0; font-weight: bold; font-size: 18px; }
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; margin-bottom: 15px; }
+        .day-name { font-size: 12px; color: #8e8e93; padding-bottom: 5px; }
+        .date-cell { padding: 10px 0; border-radius: 8px; font-size: 14px; cursor: default; color: #d1d1d6; border: 1px solid transparent; }
+        
+        .date-active { color: #000; font-weight: bold; cursor: pointer; border: 1px solid #007aff; }
+        .date-selected { background-color: #007aff !important; color: white !important; opacity: 1 !important; }
+
+        input, select { width: 100%; padding: 14px; margin: 8px 0; border: 2px solid #c7c7cc; border-radius: 8px; box-sizing: border-box; font-size: 16px; outline: none; transition: 0.3s; }
+        .border-red { border-color: #ff3b30 !important; }
+        .border-green { border-color: #34c759 !important; }
+
+        #submitBtn { width: 100%; background-color: #ffcc00; color: #000; border: none; font-weight: bold; padding: 16px; border-radius: 8px; cursor: pointer; display: none; margin-top: 10px; font-size: 17px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="btn-group">
+        <button id="btnDammam" onclick="selectLocation('dammam')">Dammam</button>
+        <button id="btnKhobar" onclick="selectLocation('khobar')">Khobar</button>
+    </div>
+
+    <div id="timeSection" style="display:none;">
+        <div class="btn-group">
+            <button id="btnMorning" onclick="selectTime('morning')">Morning</button>
+            <button id="btnNight" onclick="selectTime('night')">Night</button>
+        </div>
+    </div>
+
+    <div id="calendarSection" style="display:none;">
+        <div class="calendar-header" id="monthDisplay"></div>
+        <div class="calendar-grid" id="calendarGrid"></div>
+
+        <form id="tripForm">
+            <select id="idType" onchange="updatePlaceholder()">
+                <option value="iqama">Iqama (10 Digits)</option>
+                <option value="prn">PRN (6-8 Digits)</option>
+            </select>
+            <input type="number" id="idNumber" placeholder="Enter 10 Digit Iqama Number" inputmode="numeric" onblur="validateOnTab(this)" oninput="validateLive()">
+            <input type="text" id="name" placeholder="Full Name" onblur="validateOnTab(this)" oninput="handleNameInput()">
+            <input type="tel" id="phone" placeholder="Phone (05xxxxxxx)" inputmode="numeric" onblur="validateOnTab(this)" oninput="validateLive()">
+            <button type="submit" id="submitBtn">Submit Registration</button>
+        </form>
+    </div>
+</div>
+
+<script>
+let selectedLoc = ""; let selectedT = ""; let finalDate = "";
+const bannedPatterns = ["dog", "cat", "teacher", "student", "table", "water"];
+
+function getSchedule() {
+    const month = new Date().getMonth(); 
+    const swap = (month % 2 === 0); 
+    return {
+        dammam: {
+            morning: swap ? ["Monday"] : ["Saturday", "Monday"], 
+            night: swap ? ["Tuesday", "Thursday"] : ["Tuesday", "Thursday"]
+        },
+        khobar: {
+            morning: swap ? ["Wednesday"] : ["Wednesday"],
+            night: swap ? ["Sunday", "Friday"] : ["Sunday", "Friday"]
+        }
+    };
+}
+
+function isFixedDayValid(dayName, loc, time) {
+    if (dayName === "Thursday" && loc === "dammam" && time === "night") return true;
+    if (dayName === "Friday" && loc === "khobar" && time === "night") return true;
+    if (dayName === "Saturday" && loc === "dammam" && time === "morning") return true;
+    return false;
+}
+
+function selectLocation(loc) {
+    selectedLoc = loc;
+    document.getElementById("btnDammam").className = (loc === 'dammam') ? "active" : "";
+    document.getElementById("btnKhobar").className = (loc === 'khobar') ? "active" : "";
+    document.getElementById("timeSection").style.display = "block";
+    
+    // Check if time is also selected, then render
+    if(selectedT) {
+        renderCalendar();
+    }
+}
+
+function selectTime(t) {
+    selectedT = t;
+    document.getElementById("btnMorning").className = (t === 'morning') ? "active" : "";
+    document.getElementById("btnNight").className = (t === 'night') ? "active" : "";
+    
+    // Always render when time is clicked
+    renderCalendar();
+}
+
+function renderCalendar() {
+    const grid = document.getElementById("calendarGrid");
+    const calendarArea = document.getElementById("calendarSection");
+    
+    // IMPORTANT: Make sure section is visible
+    calendarArea.style.display = "block";
+    
+    const now = new Date();
+    document.getElementById("monthDisplay").innerText = now.toLocaleString('default', { month: 'long', year: 'numeric' });
+    grid.innerHTML = "";
+    
+    ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].forEach(d => {
+        const div = document.createElement("div"); div.className = "day-name"; div.innerText = d; grid.appendChild(div);
+    });
+
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).getDay();
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    for (let i = 0; i < firstDay; i++) grid.appendChild(document.createElement("div"));
+
+    const schedule = getSchedule();
+
+    for (let d = 1; d <= daysInMonth; d++) {
+        const dateObj = new Date(now.getFullYear(), now.getMonth(), d);
+        const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+        const cell = document.createElement("div");
+        cell.className = "date-cell"; cell.innerText = d;
+
+        const isRotatingValid = schedule[selectedLoc][selectedT].includes(dayName);
+        const isFixedValid = isFixedDayValid(dayName, selectedLoc, selectedT);
+
+        if ((isRotatingValid || isFixedValid) && dateObj >= new Date().setHours(0,0,0,0)) {
+            cell.classList.add("date-active");
+            cell.onclick = () => {
+                if (finalDate !== "" && !cell.classList.contains("date-selected")) return;
+                
+                if (cell.classList.contains("date-selected")) {
+                    cell.classList.remove("date-selected");
+                    finalDate = "";
+                    document.querySelectorAll(".date-active").forEach(c => c.style.opacity = "1");
+                } else {
+                    document.querySelectorAll(".date-cell").forEach(c => {
+                        c.classList.remove("date-selected");
+                        c.style.opacity = "0.1";
+                    });
+                    cell.classList.add("date-selected");
+                    cell.style.opacity = "1";
+                    finalDate = dateObj.toDateString();
+                }
+                validateLive();
+            };
+        }
+        grid.appendChild(cell);
+    }
+}
+
+// Logic same as before for validation
+function validateOnTab(el) {
+    const val = el.value.trim();
+    if (val === "") { el.classList.remove("border-red", "border-green"); return; }
+    let isValid = false;
+    if (el.id === "idNumber") {
+        isValid = (document.getElementById("idType").value === "iqama") ? val.length === 10 : (val.length >= 6 && val.length <= 8);
+    } else if (el.id === "name") {
+        isValid = val.length > 3 && !bannedPatterns.some(p => val.toLowerCase().includes(p));
+    } else if (el.id === "phone") {
+        isValid = /^05\d{8}$/.test(val);
+    }
+    el.className = isValid ? "border-green" : "border-red";
+}
+
+function validateLive() {
+    const idValid = (document.getElementById("idType").value === "iqama") ? document.getElementById("idNumber").value.length === 10 : (document.getElementById("idNumber").value.length >= 6 && document.getElementById("idNumber").value.length <= 8);
+    const nameValid = document.getElementById("name").value.length > 3;
+    const phoneValid = /^05\d{8}$/.test(document.getElementById("phone").value);
+    
+    document.getElementById("submitBtn").style.display = (finalDate && idValid && nameValid && phoneValid) ? "block" : "none";
+}
+
+function handleNameInput() {
+    let el = document.getElementById("name");
+    el.value = el.value.split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+    validateLive();
+}
+
+function updatePlaceholder() {
+    const type = document.getElementById("idType").value;
+    document.getElementById("idNumber").placeholder = (type === "prn") ? "Enter 6-8 Digit PRN Number" : "Enter 10 Digit Iqama Number";
+}
+</script>
+</body>
+</html>
